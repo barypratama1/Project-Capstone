@@ -160,6 +160,41 @@ app.get('/api/rabbitmq-stats', (req, res) => {
   proxyReq.end();
 });
 
+// GET /api/duplikat
+app.get('/api/duplikat', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query('SELECT kabar_id, alasan, waktu_mulai_eksekusi, waktu_selesai_eksekusi FROM kabar_duplikat ORDER BY waktu_mulai_eksekusi DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// POST /api/publish-manual
+app.post('/api/publish-manual', async (req, res) => {
+  try {
+    const { kabar_id, kode_billing, sumber, jumlah } = req.body;
+    if (!kabar_id || !kode_billing || !sumber || !jumlah) {
+      return res.status(400).json({ error: 'Data tidak lengkap' });
+    }
+    const payload = {
+      kabar_id,
+      kode_billing,
+      sumber,
+      jumlah: Number(jumlah)
+    };
+    await publishKabar(payload);
+    res.json({ message: 'Success' });
+  } catch (err) {
+    console.error('Error in /api/publish-manual:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/rabbitmq-messages
 app.get('/api/rabbitmq-messages', (req, res) => {
   const payload = JSON.stringify({
@@ -241,13 +276,23 @@ app.post('/api/publish', async (req, res) => {
 app.post('/api/test/u1', async (req, res) => {
   try {
     const { run_id } = req.body;
-    for (let i = 1; i <= 20; i++) {
+    // 10 pairs = 20 messages
+    for (let i = 1; i <= 10; i++) {
       const id = i.toString().padStart(2, '0');
-      const sumber = i % 2 === 0 ? 'rekap' : 'langsung';
+      const kodeBilling = `BIL-${run_id}-${id}`;
       const randomJumlah = (Math.floor(Math.random() * 90) + 10) * 10000;
-      await publishKabar({ kabar_id: `${run_id}-N${id}`, kode_billing: `BIL-${run_id}-${id}`, sumber, jumlah: randomJumlah });
+      
+      if (i % 2 === 0) {
+        // Rekap lalu langsung
+        await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: randomJumlah });
+        await publishKabar({ kabar_id: `${run_id}-L${id}`, kode_billing: kodeBilling, sumber: 'langsung', jumlah: randomJumlah });
+      } else {
+        // Langsung lalu rekap
+        await publishKabar({ kabar_id: `${run_id}-L${id}`, kode_billing: kodeBilling, sumber: 'langsung', jumlah: randomJumlah });
+        await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: randomJumlah });
+      }
     }
-    res.json({ message: 'U1 Sent (20 messages N01-N20)' });
+    res.json({ message: 'U1 Sent (10 pairs, 20 messages)' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -265,12 +310,13 @@ app.post('/api/test/u2', async (req, res) => {
 app.post('/api/test/u3', async (req, res) => {
   try {
     const { run_id } = req.body;
+    // Replay 5 messages that were sent in U1
     for (let i = 1; i <= 5; i++) {
       const id = i.toString().padStart(2, '0');
-      const sumber = i % 2 === 0 ? 'rekap' : 'langsung';
-      await publishKabar({ kabar_id: `${run_id}-N${id}`, kode_billing: `BIL-${run_id}-${id}`, sumber, jumlah: 150000 });
+      const kodeBilling = `BIL-${run_id}-${id}`;
+      await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: 100000 });
     }
-    res.json({ message: 'U3 Sent (Replay N01-N05)' });
+    res.json({ message: 'U3 Sent (Replay R01-R05)' });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -288,7 +334,7 @@ app.post('/api/reset', async (req, res) => {
   try {
     globalLogs.length = 0; // Clear logs on reset
     client = await pool.connect();
-    await client.query('TRUNCATE TABLE kabar_pembayaran, status_lunas, kabar_ditolak');
+    await client.query('TRUNCATE TABLE kabar_pembayaran, status_lunas, kabar_ditolak, kabar_duplikat');
     res.json({ message: 'Database reset successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -34,8 +34,18 @@ async function initDB() {
     `);
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS kabar_ditolak (
+    CREATE TABLE IF NOT EXISTS kabar_ditolak (
         kabar_id VARCHAR(255) PRIMARY KEY,
+        alasan VARCHAR(255) NOT NULL,
+        waktu_mulai_eksekusi TIMESTAMPTZ,
+        waktu_selesai_eksekusi TIMESTAMPTZ
+      );
+    `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kabar_duplikat (
+        id SERIAL PRIMARY KEY,
+        kabar_id VARCHAR(255) NOT NULL,
         alasan VARCHAR(255) NOT NULL,
         waktu_mulai_eksekusi TIMESTAMPTZ,
         waktu_selesai_eksekusi TIMESTAMPTZ

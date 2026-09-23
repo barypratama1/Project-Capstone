@@ -139,7 +139,12 @@ header p {
 /* Buttons */
 .button-group {
     display: flex;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.button-group .btn {
+    width: 100%;
 }
 
 .btn {
@@ -164,6 +169,14 @@ header p {
 
 .btn.primary:hover {
     background-color: var(--primary-hover);
+}
+
+.btn.success {
+    background-color: var(--success);
+}
+
+.btn.success:hover {
+    background-color: #059669; /* slightly darker green */
 }
 
 .btn.danger {
@@ -225,7 +238,7 @@ header p {
 /* Stats */
 .stats-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
 }
 
@@ -359,7 +372,7 @@ table {
 th,
 td {
     padding: 0.75rem 1rem;
-    text-align: left;
+    text-align: center;
     border-bottom: 1px solid var(--border);
 }
 
@@ -391,7 +404,7 @@ tbody tr:hover {
 
 .scenario-container {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
 }
@@ -488,6 +501,8 @@ tbody tr:hover {
     background-color: #323233;
     padding: 0.5rem 1rem;
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
     align-items: center;
     border-bottom: 1px solid #111;
 }

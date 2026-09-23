@@ -80,19 +80,31 @@ async function startWorker() {
         await client.query('BEGIN');
         
         const waktuSelesai = new Date();
-        await client.query(`
+        const resInsert = await client.query(`
           INSERT INTO kabar_pembayaran (kabar_id, kode_billing, sumber, jumlah, waktu_mulai_eksekusi, waktu_selesai_eksekusi) 
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (kabar_id) DO NOTHING
         `, [kabar_id, kode_billing, sumber, jumlah, waktuMulai, waktuSelesai]);
-        console.log(`[PostgreSQL] INSERT kabar_pembayaran (${kabar_id})`);
+        
+        if (resInsert.rowCount === 0) {
+          // It's a duplicate kabar_id
+          await client.query(`
+            INSERT INTO kabar_duplikat (kabar_id, alasan, waktu_mulai_eksekusi, waktu_selesai_eksekusi)
+            VALUES ($1, $2, $3, $4)
+          `, [kabar_id, 'Kabar ID duplikat (sudah diproses)', waktuMulai, waktuSelesai]);
+          console.log(`[PostgreSQL] INSERT kabar_duplikat (${kabar_id})`);
+        } else {
+          console.log(`[PostgreSQL] INSERT kabar_pembayaran (${kabar_id})`);
+        }
 
         await client.query(`
           INSERT INTO status_lunas (kode_billing) 
           VALUES ($1)
           ON CONFLICT (kode_billing) DO NOTHING
         `, [kode_billing]);
-        console.log(`[PostgreSQL] INSERT status_lunas (${kode_billing})`);
+        if (resInsert.rowCount > 0) {
+           console.log(`[PostgreSQL] INSERT status_lunas (${kode_billing})`);
+        }
 
         await client.query('COMMIT');
         console.log(`[PostgreSQL] COMMIT transaksi sukses`);

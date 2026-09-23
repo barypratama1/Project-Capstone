@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // Element References
     const elKabarCount = document.getElementById('kabarCount');
     const elLunasCount = document.getElementById('lunasCount');
     const elWorkerStatusText = document.getElementById('workerStatusText');
     const elWorkerStatusIndicator = document.getElementById('workerStatusIndicator');
     const toastContainer = document.getElementById('toastContainer');
-    
+
     // Controls
     const btnStartWorker = document.getElementById('btnStartWorker');
     const btnStopWorker = document.getElementById('btnStopWorker');
@@ -15,12 +15,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Scenarios
     const btnU1 = document.getElementById('btnU1');
     const resU1 = document.getElementById('resU1');
-    
+
     const btnU2_stop = document.getElementById('btnU2_stop');
     const btnU2_pub = document.getElementById('btnU2_pub');
     const btnU2_start = document.getElementById('btnU2_start');
     const resU2 = document.getElementById('resU2');
-    
+
     const btnU3 = document.getElementById('btnU3');
     const resU3 = document.getElementById('resU3');
 
@@ -34,31 +34,32 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await fetch('/api/status');
             const data = await res.json();
-            
+
             elKabarCount.textContent = data.kabarCount;
             elLunasCount.textContent = data.lunasCount;
-            
+
             if (data.workerRunning) {
-                elWorkerStatusText.textContent = "Worker Online";
+                elWorkerStatusText.textContent = "Worker lagi kerja";
                 elWorkerStatusIndicator.className = "dot online";
                 btnStartWorker.disabled = true;
                 btnStopWorker.disabled = false;
             } else {
-                elWorkerStatusText.textContent = "Worker Offline";
+                elWorkerStatusText.textContent = "Worker lagi ngopi";
                 elWorkerStatusIndicator.className = "dot offline";
                 btnStartWorker.disabled = false;
                 btnStopWorker.disabled = true;
             }
-            
+
             // Table Kabar Masuk
             const resKabar = await fetch('/api/kabar');
             const dataKabar = await resKabar.json();
             const tableBody = document.getElementById('tableBody');
             if (dataKabar.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Belum ada data</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center">Belum ada data</td></tr>';
             } else {
-                tableBody.innerHTML = dataKabar.map(item => `
+                tableBody.innerHTML = dataKabar.map((item, index) => `
                     <tr>
+                        <td class="text-center">${index + 1}</td>
                         <td>${item.kabar_id}</td>
                     <td>${item.kode_billing}</td>
                     <td><span class="badge badge-${item.sumber}">${item.sumber}</span></td>
@@ -74,16 +75,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const dataDitolak = await resDitolak.json();
             const tableBodyDitolak = document.getElementById('tableBodyDitolak');
             if (dataDitolak.length === 0) {
-                tableBodyDitolak.innerHTML = '<tr><td colspan="4" class="text-center">Belum ada data ditolak</td></tr>';
+                tableBodyDitolak.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada data ditolak</td></tr>';
             } else {
-                tableBodyDitolak.innerHTML = dataDitolak.map(item => `
+                tableBodyDitolak.innerHTML = dataDitolak.map((item, index) => `
                 <tr>
+                    <td class="text-center">${index + 1}</td>
                     <td>${item.kabar_id}</td>
                     <td><span style="color: #ef4444; font-weight: bold;">${item.alasan}</span></td>
                     <td>${item.waktu_mulai_eksekusi || '-'}</td>
                     <td>${item.waktu_selesai_eksekusi || '-'}</td>
                 </tr>
                 `).join('');
+            }
+
+            // Table Kabar Duplikat
+            const resDuplikat = await fetch('/api/duplikat');
+            const dataDuplikat = await resDuplikat.json();
+            const tableBodyDuplikat = document.getElementById('tableBodyDuplikat');
+            if (tableBodyDuplikat) {
+                if (dataDuplikat.length === 0) {
+                    tableBodyDuplikat.innerHTML = '<tr><td colspan="5" class="text-center">Belum ada pesan duplikat</td></tr>';
+                } else {
+                    tableBodyDuplikat.innerHTML = dataDuplikat.map((item, index) => `
+                    <tr>
+                        <td class="text-center">${index + 1}</td>
+                        <td>${item.kabar_id}</td>
+                        <td><span style="color: #4f46e5; font-weight: bold;">${item.alasan}</span></td>
+                        <td>${item.waktu_mulai_eksekusi || '-'}</td>
+                        <td>${item.waktu_selesai_eksekusi || '-'}</td>
+                    </tr>
+                    `).join('');
+                }
             }
 
             // RMQ Live Stats
@@ -96,22 +118,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const resLogs = await fetch('/api/logs');
             const dataLogs = await resLogs.json();
             renderLogs(dataLogs);
-            
+
             // Auto-fetch Antrean RabbitMQ
             const resMsg = await fetch('/api/rabbitmq-messages');
             const messages = await resMsg.json();
             const tableBodyAntrean = document.getElementById('tableBodyAntrean');
             if (tableBodyAntrean) {
                 if (!Array.isArray(messages) || messages.length === 0) {
-                    tableBodyAntrean.innerHTML = '<tr><td colspan="4" class="text-center">Antrean kosong</td></tr>';
+                    tableBodyAntrean.innerHTML = '<tr><td colspan="5" class="text-center">Antrean kosong</td></tr>';
                 } else {
-                    tableBodyAntrean.innerHTML = messages.map(msg => {
+                    tableBodyAntrean.innerHTML = messages.map((msg, index) => {
                         let payload = {};
                         try {
                             payload = JSON.parse(msg.payload);
-                        } catch(e) {}
+                        } catch (e) { }
                         return `
                         <tr>
+                            <td class="text-center">${index + 1}</td>
                             <td>${payload.kabar_id || '-'}</td>
                             <td>${payload.kode_billing || '-'}</td>
                             <td>${payload.sumber || '-'}</td>
@@ -151,9 +174,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (logs.length === lastLogCount) return;
-        
+
         const isScrolledToBottom = terminalBody.scrollHeight - terminalBody.clientHeight <= terminalBody.scrollTop + 10;
-        
+
         terminalBody.innerHTML = logs.map(log => {
             let colorClass = log.type === 'error' ? 'log-error' : 'log-info';
             let message = log.message;
@@ -161,10 +184,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (message.includes('[Service Producer]')) colorClass = 'log-producer';
             if (message.includes('[PostgreSQL]')) colorClass = 'log-postgres';
             if (message.includes('[RabbitMQ]')) colorClass = 'log-rabbitmq';
-            
+
             return `<div class="log-line"><span class="log-time">[${log.timestamp}]</span><span class="${colorClass}">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>`;
         }).join('');
-        
+
         if (isScrolledToBottom || logs.length !== lastLogCount) {
             terminalBody.scrollTop = terminalBody.scrollHeight;
         }
@@ -177,17 +200,47 @@ document.addEventListener('DOMContentLoaded', () => {
         btnExportLog.addEventListener('click', () => {
             if (!terminalBody) return;
             const logLines = Array.from(terminalBody.querySelectorAll('.log-line'))
-                                  .map(line => line.innerText || line.textContent)
-                                  .join('\n');
+                .map(line => line.innerText || line.textContent)
+                .join('\n');
             const blob = new Blob([logLines], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `Pipeline_Activity_Log_${new Date().toISOString().slice(0,10)}.txt`;
+            a.download = `Pipeline_Activity_Log_${new Date().toISOString().slice(0, 10)}.txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        });
+    }
+
+    // Manual Data Entry
+    const formManual = document.getElementById('formManual');
+    if (formManual) {
+        formManual.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const kabar_id = document.getElementById('manKabarId').value;
+            const kode_billing = document.getElementById('manKodeBilling').value;
+            const sumber = document.getElementById('manSumber').value;
+            const jumlah = document.getElementById('manJumlah').value;
+
+            try {
+                const res = await fetch('/api/publish-manual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kabar_id, kode_billing, sumber, jumlah })
+                });
+                if (res.ok) {
+                    showToast('Data manual berhasil dikirim!');
+                    formManual.reset();
+                    fetchStatus();
+                } else {
+                    const data = await res.json();
+                    showToast('Gagal: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                showToast('Gagal terhubung ke server');
+            }
         });
     }
 
@@ -201,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         t.textContent = message;
         toastContainer.appendChild(t);
         setTimeout(() => {
-            if(toastContainer.contains(t)) toastContainer.removeChild(t);
+            if (toastContainer.contains(t)) toastContainer.removeChild(t);
         }, 3000);
     }
 
@@ -221,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     btnReset.addEventListener('click', async () => {
-        if(confirm("Apakah Anda yakin ingin mereset database dan run_id?")) {
+        if (confirm("Apakah Anda yakin ingin mereset database dan run_id?")) {
             await fetch('/api/reset', { method: 'POST' });
             run_id = `RUN-${Math.floor(Date.now() / 1000)}`;
             localStorage.setItem('run_id', run_id);
@@ -241,19 +294,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // U1
     btnU1.addEventListener('click', async () => {
         resU1.innerHTML = `<span style="color: #d97706; font-weight: 600;">Processing U1...</span>`;
-        
+
         // Pastikan reset awal agar hitungannya pasti 20
         await fetch('/api/reset', { method: 'POST' });
-        
+
         // Pastikan worker menyala
         await fetch('/api/worker/start', { method: 'POST' });
-        
+
         await fetch('/api/test/u1', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ run_id })
         });
-        
+
         // Wait for processing with polling up to 6 seconds
         let success = false;
         let finalLunasCount = 0;
@@ -262,16 +315,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/status');
             const data = await res.json();
             finalLunasCount = data.lunasCount;
-            if (data.kabarCount === 20 && data.lunasCount === 20) {
+            // 20 pesan sah (10 pairs), sehingga kabarCount = 20, lunasCount = 10 unik
+            if (data.kabarCount === 20 && data.lunasCount === 10) {
                 success = true;
                 break;
             }
         }
-        
+
         if (success) {
-            resU1.innerHTML = `<span style="color: #10b981">Sukses (U1): ${finalLunasCount} hasil unik.</span>`;
+            resU1.innerHTML = `<span style="color: #10b981">Sukses (U1): ${finalLunasCount} hasil unik dari 20 pesan.</span>`;
         } else {
-            resU1.innerHTML = `<span style="color: #ef4444">Gagal: Diharapkan 20, DB memiliki ${finalLunasCount}</span>`;
+            resU1.innerHTML = `<span style="color: #ef4444">Gagal: Diharapkan 10 lunas unik, DB memiliki ${finalLunasCount}</span>`;
         }
     });
 
@@ -290,10 +344,10 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({ run_id })
         });
         await wait(500); // give broker time to enqueue
-        
+
         const qRes = await fetch('/api/queue-status');
         const qData = await qRes.json();
-        
+
         if (qData.messageCount >= 5) {
             resU2.innerHTML = `<span style="color: #d97706; font-weight: 600;">Bukti: ${qData.messageCount} pesan menunggu di antrean 'rekonsiliasi'. Siap dipulihkan.</span>`;
             btnU2_pub.disabled = true;
@@ -306,18 +360,18 @@ document.addEventListener('DOMContentLoaded', () => {
     btnU2_start.addEventListener('click', async () => {
         await fetch('/api/worker/start', { method: 'POST' });
         resU2.innerHTML = `<span style="color: #d97706; font-weight: 600;">Consumer pulih. Memproses queue...</span>`;
-        
+
         await wait(2000);
         const res = await fetch('/api/status');
         const data = await res.json();
-        
-        // Expected count after U1 (20) + U2 (5) = 25
-        if (data.kabarCount === 25 && data.lunasCount === 25) {
-            resU2.innerHTML = `<span style="color: #10b981">Sukses (U2): Kelima ID asli selesai tanpa dikirim manual. (Total lunas: 25)</span>`;
+
+        // Expected count after U1 (20 kabar, 10 lunas) + U2 (5 kabar, 5 lunas) = 25 kabar, 15 lunas
+        if (data.kabarCount === 25 && data.lunasCount === 15) {
+            resU2.innerHTML = `<span style="color: #10b981">Sukses (U2): Kelima ID asli selesai tanpa dikirim manual. (Total lunas: 15)</span>`;
             btnU2_start.disabled = true;
             btnU2_stop.disabled = false; // reset state
         } else {
-            resU2.innerHTML = `<span style="color: #ef4444">Gagal: Jumlah akhir lunas ${data.lunasCount} (Expected: 25)</span>`;
+            resU2.innerHTML = `<span style="color: #ef4444">Gagal: Jumlah akhir lunas ${data.lunasCount} (Expected: 15)</span>`;
         }
     });
 
@@ -329,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ run_id })
         });
-        
+
         let success = false;
         let finalLunasCount = 0;
         for (let i = 0; i < 4; i++) {
@@ -337,16 +391,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/status');
             const data = await res.json();
             finalLunasCount = data.lunasCount;
-            if (data.kabarCount === 25 && data.lunasCount === 25) {
+            // Kabar = 25, Lunas = 15 (Tidak bertambah)
+            if (data.kabarCount === 25 && data.lunasCount === 15) {
                 success = true;
                 break;
             }
         }
-        
+
         if (success) {
-            resU3.innerHTML = `<span style="color: #10b981">Sukses (U3): Efek bisnis tidak bertambah. Hasil tetap 25.</span>`;
+            resU3.innerHTML = `<span style="color: #10b981">Sukses (U3): Efek bisnis tidak bertambah. Hasil tetap 15 lunas.</span>`;
         } else {
-            resU3.innerHTML = `<span style="color: #ef4444">Gagal: DB terubah. Lunas: ${finalLunasCount} (Expected: 25)</span>`;
+            resU3.innerHTML = `<span style="color: #ef4444">Gagal: DB terubah. Lunas: ${finalLunasCount} (Expected: 15)</span>`;
         }
     });
 
@@ -358,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ run_id })
         });
-        
+
         let success = false;
         let finalLunasCount = 0;
         for (let i = 0; i < 4; i++) {
@@ -366,17 +421,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/status');
             const data = await res.json();
             finalLunasCount = data.lunasCount;
-            // Expected after U1(20) + U2(5) + U4(1 valid) = 26
-            if (data.kabarCount === 26 && data.lunasCount === 26) {
+            // Expected after U1(20/10) + U2(5/5) + U4(1 valid) = 26 kabar, 16 lunas
+            if (data.kabarCount === 26 && data.lunasCount === 16) {
                 success = true;
                 break;
             }
         }
-        
+
         if (success) {
-            resU4.innerHTML = `<span style="color: #10b981">Sukses (U4): X01 ditolak, V01 diproses. Total lunas: 26.</span>`;
+            resU4.innerHTML = `<span style="color: #10b981">Sukses (U4): X01 ditolak, V01 diproses. Total lunas: 16.</span>`;
         } else {
-            resU4.innerHTML = `<span style="color: #ef4444">Gagal: Total Lunas: ${finalLunasCount} (Expected: 26)</span>`;
+            resU4.innerHTML = `<span style="color: #ef4444">Gagal: Total Lunas: ${finalLunasCount} (Expected: 16)</span>`;
         }
     });
 

@@ -30,9 +30,11 @@
                     <span id="workerStatusText">Worker Offline</span>
                 </div>
                 <div class="button-group">
-                    <button id="btnStartWorker" class="btn primary">Ayo Kerja</button>
+                    <button id="btnStartWorker" class="btn success">Ayo Kerja</button>
                     <button id="btnStopWorker" class="btn danger">Ngopi Dulu</button>
+                    <button id="btnReset" class="btn primary">Reset Database</button>
                 </div>
+                <div class="toast-container" id="toastContainer"></div>
             </section>
 
             <!-- Database Stats -->
@@ -50,6 +52,29 @@
                         <p class="stat-desc">Kode Billing Lunas</p>
                     </div>
                 </div>
+            </section>
+
+            <!-- Manual Data Entry -->
+            <section class="card form-card">
+                <h2>Tambah Data Manual</h2>
+                <form id="formManual" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                    <div>
+                        <input type="text" id="manKabarId" placeholder="Kabar ID (Cth: KAB-001)" required>
+                    </div>
+                    <div>
+                        <input type="text" id="manKodeBilling" placeholder="Kode Billing (Cth: BIL-001)" required>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        <select id="manSumber" required style="flex: 1; min-width: 120px;">
+                            <option value="" disabled selected>Pilih Sumber</option>
+                            <option value="langsung">langsung</option>
+                            <option value="rekap">rekap</option>
+                        </select>
+                        <input type="number" id="manJumlah" placeholder="Jumlah (Rp)" required
+                            style="flex: 1; min-width: 120px;">
+                    </div>
+                    <button type="submit" class="btn primary mt-05">Kirim Pesan</button>
+                </form>
             </section>
         </main>
 
@@ -109,14 +134,105 @@
 
         </div>
 
-        <div class="reset-wrapper text-center mt-1">
-            <button id="btnReset" class="btn primary btn-small">Reset Skenario & Database</button>
+        <!-- Data Tables 1 Block -->
+        <div class="tables-container mt-2">
+            <!-- Data Table Section -->
+            <section class="card table-card text-center">
+                <h2>Pesan Masuk (Top 50)</h2>
+                <div class="table-responsive">
+                    <table style="margin: 0 auto; width: 100%; text-align: center;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">No</th>
+                                <th style="text-align: center;">Kabar ID</th>
+                                <th style="text-align: center;">Kode Billing</th>
+                                <th style="text-align: center;">Sumber</th>
+                                <th style="text-align: center;">Jumlah (Rp)</th>
+                                <th style="text-align: center;">Waktu Mulai Eksekusi</th>
+                                <th style="text-align: center;">Waktu Selesai Eksekusi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <tr>
+                                <td colspan="7" class="text-center">Memuat data...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Antrean RabbitMQ -->
+            <section class="card table-card mt-1 text-center" style="border-top: 4px solid #f59e0b;">
+                <h2 style="color: #d97706;">Antrean Pesan</h2>
+                <div class="table-responsive">
+                    <table style="margin: 0 auto; width: 100%; text-align: center;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">No</th>
+                                <th style="text-align: center;">Kabar ID</th>
+                                <th style="text-align: center;">Kode Billing</th>
+                                <th style="text-align: center;">Sumber</th>
+                                <th style="text-align: center;">Jumlah (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyAntrean">
+                            <tr>
+                                <td colspan="5" class="text-center">Memuat antrean...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Tabel Penolakan (U4) -->
+            <section class="card table-card mt-1 text-center" style="border-top: 4px solid #ef4444;">
+                <h2 style="color: #ef4444;">Pesan Ditolak (Dead Letter)</h2>
+                <div class="table-responsive">
+                    <table style="margin: 0 auto; width: 100%; text-align: center;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">No</th>
+                                <th style="text-align: center;">Kabar ID</th>
+                                <th style="text-align: center;">Alasan Penolakan</th>
+                                <th style="text-align: center;">Waktu Mulai Eksekusi</th>
+                                <th style="text-align: center;">Waktu Selesai Eksekusi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyDitolak">
+                            <tr>
+                                <td colspan="5" class="text-center">Belum ada data ditolak</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Tabel Duplikat -->
+            <section class="card table-card mt-1 text-center" style="border-top: 4px solid #6366f1;">
+                <h2 style="color: #4f46e5;">Pesan Duplikat</h2>
+                <div class="table-responsive">
+                    <table style="margin: 0 auto; width: 100%; text-align: center;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: center;">No</th>
+                                <th style="text-align: center;">Kabar ID</th>
+                                <th style="text-align: center;">Alasan</th>
+                                <th style="text-align: center;">Waktu Mulai Eksekusi</th>
+                                <th style="text-align: center;">Waktu Selesai Eksekusi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBodyDuplikat">
+                            <tr>
+                                <td colspan="5" class="text-center">Belum ada pesan duplikat</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         </div>
 
-        <div class="toast-container" id="toastContainer"></div>
-
         <!-- Activity Log Terminal -->
-        <section class="terminal-card mt-2">
+        <section class="terminal-card mt-2 mb-2">
             <div class="terminal-header">
                 <div class="mac-btns">
                     <span class="mac-btn close"></span>
@@ -135,83 +251,6 @@
                 <div class="log-line system"><span class="log-info">Menunggu aktivitas sistem...</span></div>
             </div>
         </section>
-
-        <!-- Data Tables Side by Side -->
-        <div class="logs-tables-grid">
-            <div class="left-col">
-                <!-- Data Table Section -->
-                <section class="card table-card">
-                    <h2>Data Kabar Masuk (Top 50)</h2>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Kabar ID</th>
-                                    <th>Kode Billing</th>
-                                    <th>Sumber</th>
-                                    <th>Jumlah (Rp)</th>
-                                    <th>Waktu Mulai Eksekusi</th>
-                                    <th>Waktu Selesai Eksekusi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBody">
-                                <tr>
-                                    <td colspan="6" class="text-center">Memuat data...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-
-            <div class="right-col">
-                <!-- Antrean RabbitMQ -->
-                <section class="card table-card" style="border-left: 4px solid #f59e0b; margin-bottom: 1rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                        <h2 style="color: #d97706; margin: 0;">Antrean 'rekonsiliasi'</h2>
-                    </div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Kabar ID</th>
-                                    <th>Kode Billing</th>
-                                    <th>Sumber</th>
-                                    <th>Jumlah (Rp)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBodyAntrean">
-                                <tr>
-                                    <td colspan="4" class="text-center">Memuat antrean...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <!-- Tabel Penolakan (U4) -->
-                <section class="card table-card" style="border-left: 4px solid #ef4444;">
-                    <h2 style="color: #ef4444;">Data Kabar Ditolak (Dead Letter)</h2>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Kabar ID</th>
-                                    <th>Alasan Penolakan</th>
-                                    <th>Waktu Mulai Eksekusi</th>
-                                    <th>Waktu Selesai Eksekusi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="tableBodyDitolak">
-                                <tr>
-                                    <td colspan="4" class="text-center">Belum ada data ditolak</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </div>
-        </div>
     </div>
 
     <script src="script.js?v=3"></script>

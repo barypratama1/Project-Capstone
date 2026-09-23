@@ -71,7 +71,12 @@ Aplikasi ini menyediakan berbagai API untuk pengujian skenario rekonsiliasi.
 Sistem ini menggunakan 3 tabel utama (dibuat secara otomatis oleh `db.js`):
 1. `kabar_pembayaran`: Menyimpan histori pesan/kabar pembayaran yang masuk dan diproses.
 2. `status_lunas`: Mencatat daftar `kode_billing` yang pembayarannya telah dinyatakan sukses/lunas.
-3. `kabar_ditolak`: Mencatat daftar pembayaran yang gagal diproses beserta alasannya (contoh: tidak ada kode billing).
+7. `kabar_ditolak`: Mencatat daftar pembayaran yang gagal diproses beserta alasannya (contoh: tidak ada kode billing).
+
+## Aturan Bisnis (Rules)
+- Simpan tiap kabar apa adanya dengan `kabar_id` sebagai kunci unik, lalu turunkan status lunas per `kode_billing` di tabel terpisah. Satu tabel merekam yang datang, satu menyimpulkan keadaannya.
+- Deduplikasi memakai `kabar_id`, bukan `kode_billing`. Kode yang sama dari dua sumber adalah dua kabar sah; yang tidak boleh ganda adalah status lunasnya.
+- Fixture memuat pasangan rekap lalu langsung dan pasangan langsung lalu rekap untuk kode berbeda, sehingga hasil terbukti tidak bergantung urutan.
 
 ## Kontribusi & Pengembangan
 Aplikasi ini dikembangkan untuk menguji kasus skenario (Scenario Testing) tentang bagaimana antrean pembayaran ditangani (Producer & Consumer) dan dicatat ke dalam database untuk rekonsiliasi yang konsisten.
