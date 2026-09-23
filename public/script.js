@@ -85,11 +85,113 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
                 `).join('');
             }
+
+            // RMQ Live Stats
+            const resRmq = await fetch('/api/rabbitmq-stats');
+            const dataRmq = await resRmq.json();
+            document.getElementById('rmqReady').textContent = dataRmq.ready;
+            document.getElementById('rmqUnacked').textContent = dataRmq.unacked;
+
+            // Logs
+            const resLogs = await fetch('/api/logs');
+            const dataLogs = await resLogs.json();
+            renderLogs(dataLogs);
+            
+            // Auto-fetch Antrean RabbitMQ
+            const resMsg = await fetch('/api/rabbitmq-messages');
+            const messages = await resMsg.json();
+            const tableBodyAntrean = document.getElementById('tableBodyAntrean');
+            if (tableBodyAntrean) {
+                if (!Array.isArray(messages) || messages.length === 0) {
+                    tableBodyAntrean.innerHTML = '<tr><td colspan="4" class="text-center">Antrean kosong</td></tr>';
+                } else {
+                    tableBodyAntrean.innerHTML = messages.map(msg => {
+                        let payload = {};
+                        try {
+                            payload = JSON.parse(msg.payload);
+                        } catch(e) {}
+                        return `
+                        <tr>
+                            <td>${payload.kabar_id || '-'}</td>
+                            <td>${payload.kode_billing || '-'}</td>
+                            <td>${payload.sumber || '-'}</td>
+                            <td class="text-right">Rp ${parseInt(payload.jumlah || 0).toLocaleString('id-ID')}</td>
+                        </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Alerts
+            const alertContainer = document.getElementById('alertContainer');
+            if (alertContainer) {
+                let alertHtml = '';
+                if (!data.workerRunning) {
+                    alertHtml += `<div class="alert-banner warning">⚠️ Worker sedang offline! Pesan akan menumpuk di antrean.</div>`;
+                }
+                if (dataRmq.ready > 0 || dataRmq.unacked > 0) {
+                    alertHtml += `<div class="alert-banner">🚨 Peringatan: Ada ${dataRmq.ready + dataRmq.unacked} pesan yang belum sukses diproses oleh consumer!</div>`;
+                }
+                alertContainer.innerHTML = alertHtml;
+            }
+
         } catch (err) {
             console.error('Error fetching status:', err);
         }
     }
 
+    const terminalBody = document.getElementById('terminalBody');
+    let lastLogCount = 0;
+
+    function renderLogs(logs) {
+        if (!terminalBody) return;
+        if (logs.length === 0 && lastLogCount > 0) {
+            terminalBody.innerHTML = '<div class="log-line system"><span class="log-info">Menunggu aktivitas sistem...</span></div>';
+            lastLogCount = 0;
+            return;
+        }
+        if (logs.length === lastLogCount) return;
+        
+        const isScrolledToBottom = terminalBody.scrollHeight - terminalBody.clientHeight <= terminalBody.scrollTop + 10;
+        
+        terminalBody.innerHTML = logs.map(log => {
+            let colorClass = log.type === 'error' ? 'log-error' : 'log-info';
+            let message = log.message;
+            if (message.includes('[Service Consumer]')) colorClass = 'log-consumer';
+            if (message.includes('[Service Producer]')) colorClass = 'log-producer';
+            if (message.includes('[PostgreSQL]')) colorClass = 'log-postgres';
+            if (message.includes('[RabbitMQ]')) colorClass = 'log-rabbitmq';
+            
+            return `<div class="log-line"><span class="log-time">[${log.timestamp}]</span><span class="${colorClass}">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>`;
+        }).join('');
+        
+        if (isScrolledToBottom || logs.length !== lastLogCount) {
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+        lastLogCount = logs.length;
+    }
+
+    // Export Log to TXT
+    const btnExportLog = document.getElementById('btnExportLog');
+    if (btnExportLog) {
+        btnExportLog.addEventListener('click', () => {
+            if (!terminalBody) return;
+            const logLines = Array.from(terminalBody.querySelectorAll('.log-line'))
+                                  .map(line => line.innerText || line.textContent)
+                                  .join('\n');
+            const blob = new Blob([logLines], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Pipeline_Activity_Log_${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    // Auto-fetch interval
     setInterval(fetchStatus, 1000);
     fetchStatus();
 
@@ -138,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // SCENARIOS
     // U1
     btnU1.addEventListener('click', async () => {
-        resU1.innerHTML = `<span style="color: yellow">Processing U1...</span>`;
+        resU1.innerHTML = `<span style="color: #d97706; font-weight: 600;">Processing U1...</span>`;
         
         // Pastikan reset awal agar hitungannya pasti 20
         await fetch('/api/reset', { method: 'POST' });
@@ -178,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch('/api/worker/stop', { method: 'POST' });
         btnU2_stop.disabled = true;
         btnU2_pub.disabled = false;
-        resU2.innerHTML = `<span style="color: yellow">Consumer dihentikan. Siap menembak G01-G05.</span>`;
+        resU2.innerHTML = `<span style="color: #d97706; font-weight: 600;">Consumer dihentikan. Siap menembak G01-G05.</span>`;
     });
 
     btnU2_pub.addEventListener('click', async () => {
@@ -193,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const qData = await qRes.json();
         
         if (qData.messageCount >= 5) {
-            resU2.innerHTML = `<span style="color: yellow">Bukti: ${qData.messageCount} pesan menunggu di antrean 'rekonsiliasi'. Siap dipulihkan.</span>`;
+            resU2.innerHTML = `<span style="color: #d97706; font-weight: 600;">Bukti: ${qData.messageCount} pesan menunggu di antrean 'rekonsiliasi'. Siap dipulihkan.</span>`;
             btnU2_pub.disabled = true;
             btnU2_start.disabled = false;
         } else {
@@ -203,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnU2_start.addEventListener('click', async () => {
         await fetch('/api/worker/start', { method: 'POST' });
-        resU2.innerHTML = `<span style="color: yellow">Consumer pulih. Memproses queue...</span>`;
+        resU2.innerHTML = `<span style="color: #d97706; font-weight: 600;">Consumer pulih. Memproses queue...</span>`;
         
         await wait(2000);
         const res = await fetch('/api/status');
@@ -221,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // U3
     btnU3.addEventListener('click', async () => {
-        resU3.innerHTML = `<span style="color: yellow">Processing U3 (Replay N01-N05)...</span>`;
+        resU3.innerHTML = `<span style="color: #d97706; font-weight: 600;">Processing U3 (Replay N01-N05)...</span>`;
         await fetch('/api/test/u3', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -250,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // U4
     btnU4.addEventListener('click', async () => {
-        resU4.innerHTML = `<span style="color: yellow">Processing U4...</span>`;
+        resU4.innerHTML = `<span style="color: #d97706; font-weight: 600;">Processing U4...</span>`;
         await fetch('/api/test/u4', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

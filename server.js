@@ -1,5 +1,6 @@
 const express = require('express');
 const { spawn } = require('child_process');
+const http = require('http');
 const path = require('path');
 const { pool } = require('./db');
 const { publishKabar, checkQueueStatus } = require('./producer');
@@ -7,12 +8,46 @@ const { publishKabar, checkQueueStatus } = require('./producer');
 const app = express();
 const port = 3000;
 
+const globalLogs = [];
+const originalLog = console.log;
+const originalError = console.error;
+
+function addLog(type, msg) {
+  const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
+  globalLogs.push({ type, timestamp, message: msg.toString().trim() });
+  if (globalLogs.length > 200) globalLogs.shift();
+}
+
+console.log = function(...args) {
+  addLog('info', args.join(' '));
+  originalLog.apply(console, args);
+};
+
+console.error = function(...args) {
+  addLog('error', args.join(' '));
+  originalError.apply(console, args);
+};
+
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Cleanup worker on exit
+function cleanup() {
+  if (workerProcess && !workerProcess.killed) {
+    workerProcess.kill('SIGKILL');
+  }
+  process.exit();
+}
+['SIGINT', 'SIGTERM', 'SIGQUIT'].forEach(sig => process.on(sig, cleanup));
+process.on('exit', () => {
+  if (workerProcess && !workerProcess.killed) {
+    workerProcess.kill('SIGKILL');
+  }
 });
 
 app.use(express.json());
@@ -86,6 +121,81 @@ app.get('/api/queue-status', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/logs
+app.get('/api/logs', (req, res) => {
+  res.json(globalLogs);
+});
+
+// GET /api/rabbitmq-stats
+app.get('/api/rabbitmq-stats', (req, res) => {
+  const options = {
+    hostname: 'localhost',
+    port: 15672,
+    path: '/api/queues/%2F/rekonsiliasi',
+    method: 'GET',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from('guest:guest').toString('base64')
+    }
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = '';
+    proxyRes.on('data', chunk => data += chunk);
+    proxyRes.on('end', () => {
+      try {
+        const parsed = JSON.parse(data);
+        res.json({
+          ready: parsed.messages_ready || 0,
+          unacked: parsed.messages_unacknowledged || 0,
+          total: parsed.messages || 0
+        });
+      } catch(e) { 
+        res.json({ ready: 0, unacked: 0, total: 0 }); 
+      }
+    });
+  });
+  proxyReq.on('error', (e) => res.json({ ready: 0, unacked: 0, total: 0 }));
+  proxyReq.end();
+});
+
+// GET /api/rabbitmq-messages
+app.get('/api/rabbitmq-messages', (req, res) => {
+  const payload = JSON.stringify({
+    count: 50,
+    ackmode: 'ack_requeue_true',
+    encoding: 'auto',
+    truncate: 50000
+  });
+
+  const options = {
+    hostname: 'localhost',
+    port: 15672,
+    path: '/api/queues/%2F/rekonsiliasi/get',
+    method: 'POST',
+    headers: {
+      'Authorization': 'Basic ' + Buffer.from('guest:guest').toString('base64'),
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(payload)
+    }
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    let data = '';
+    proxyRes.on('data', chunk => data += chunk);
+    proxyRes.on('end', () => {
+      try {
+        const parsed = JSON.parse(data);
+        res.json(parsed);
+      } catch(e) { 
+        res.json([]); 
+      }
+    });
+  });
+  proxyReq.on('error', (e) => res.json([]));
+  proxyReq.write(payload);
+  proxyReq.end();
 });
 
 // POST /api/worker/start
@@ -176,6 +286,7 @@ app.post('/api/test/u4', async (req, res) => {
 app.post('/api/reset', async (req, res) => {
   let client;
   try {
+    globalLogs.length = 0; // Clear logs on reset
     client = await pool.connect();
     await client.query('TRUNCATE TABLE kabar_pembayaran, status_lunas, kabar_ditolak');
     res.json({ message: 'Database reset successfully' });

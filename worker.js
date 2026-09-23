@@ -47,8 +47,10 @@ async function startWorker() {
       }
 
       const { kabar_id, kode_billing, sumber, jumlah } = payload;
+      console.log(`[Service Consumer] Menerima pesan kabar_id: ${kabar_id} (Status: Unacked)`);
+
       if (!kabar_id || !kode_billing) {
-        console.error('Invalid message format (missing kabar_id or kode_billing):', payload);
+        console.error(`[Service Consumer] Invalid message format:`, payload);
         
         if (kabar_id) {
           const waktuSelesai = new Date();
@@ -59,43 +61,49 @@ async function startWorker() {
               VALUES ($1, $2, $3, $4)
               ON CONFLICT DO NOTHING
             `, [kabar_id, 'missing kode_billing', waktuMulai, waktuSelesai]);
+            console.log(`[PostgreSQL] INSERT kabar_ditolak (${kabar_id})`);
           } catch (e) {
-            console.error('Failed to log rejected message', e);
+            console.error(`[PostgreSQL] Failed to log rejected message`, e);
           } finally {
             client.release();
           }
         }
         
-        channel.ack(msg); // ack it to remove from queue
+        console.log(`[RabbitMQ] Ack pesan invalid (Dihapus dari antrean)`);
+        channel.ack(msg);
         return;
       }
 
       const client = await pool.connect();
       try {
+        console.log(`[PostgreSQL] BEGIN transaksi untuk ${kabar_id}`);
         await client.query('BEGIN');
         
-        // Simpan kabar apa adanya (deduplikasi dengan kabar_id menggunakan ON CONFLICT DO NOTHING)
         const waktuSelesai = new Date();
         await client.query(`
           INSERT INTO kabar_pembayaran (kabar_id, kode_billing, sumber, jumlah, waktu_mulai_eksekusi, waktu_selesai_eksekusi) 
           VALUES ($1, $2, $3, $4, $5, $6)
           ON CONFLICT (kabar_id) DO NOTHING
         `, [kabar_id, kode_billing, sumber, jumlah, waktuMulai, waktuSelesai]);
+        console.log(`[PostgreSQL] INSERT kabar_pembayaran (${kabar_id})`);
 
-        // Simpulkan status lunas (pastikan tidak ganda dengan ON CONFLICT DO NOTHING)
         await client.query(`
           INSERT INTO status_lunas (kode_billing) 
           VALUES ($1)
           ON CONFLICT (kode_billing) DO NOTHING
         `, [kode_billing]);
+        console.log(`[PostgreSQL] INSERT status_lunas (${kode_billing})`);
 
         await client.query('COMMIT');
-        console.log(`[x] Processed ${kabar_id} for ${kode_billing} from ${sumber}`);
+        console.log(`[PostgreSQL] COMMIT transaksi sukses`);
+        
+        console.log(`[Service Consumer] Selesai memproses ${kabar_id}`);
+        console.log(`[RabbitMQ] Ack pesan ${kabar_id} (Dihapus dari antrean)`);
         channel.ack(msg);
       } catch (err) {
         await client.query('ROLLBACK');
-        console.error(`[!] Error processing ${kabar_id}:`, err);
-        // Requeue for retry
+        console.error(`[PostgreSQL] Error processing ${kabar_id}, ROLLBACK:`, err.message);
+        console.log(`[RabbitMQ] Nack pesan ${kabar_id} (Requeue)`);
         channel.nack(msg, false, true);
       } finally {
         client.release();

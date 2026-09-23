@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,12 +10,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="app-container">
         <header>
-            <h1>Rekonsiliasi Kode Billing</h1>
+            <h1>A15 - Rekonsiliasi Kode Billing</h1>
+            <h2>- Kelompok 5 -</h2>
             <p>Live Dashboard & Simulation Tool</p>
         </header>
+
+        <div id="alertContainer"></div>
 
         <main class="dashboard-grid">
             <!-- Worker Control Panel -->
@@ -25,8 +30,8 @@
                     <span id="workerStatusText">Worker Offline</span>
                 </div>
                 <div class="button-group">
-                    <button id="btnStartWorker" class="btn primary">Start Worker</button>
-                    <button id="btnStopWorker" class="btn danger">Stop Worker</button>
+                    <button id="btnStartWorker" class="btn primary">Ayo Kerja</button>
+                    <button id="btnStopWorker" class="btn danger">Ngopi Dulu</button>
                 </div>
             </section>
 
@@ -67,7 +72,8 @@
             <div class="card scenario-card">
                 <div class="scenario-header">
                     <h3>Pengujian 2 (U2)</h3>
-                    <p>Hentikan consumer, kirim 5 event (G01-G05). Buktikan pesan tertahan di queue, lalu pulihkan consumer.</p>
+                    <p>Hentikan consumer, kirim 5 event (G01-G05). Buktikan pesan tertahan di queue, lalu pulihkan
+                        consumer.</p>
                 </div>
                 <div class="scenario-body">
                     <button id="btnU2_stop" class="btn danger">1. Stop Consumer</button>
@@ -101,54 +107,114 @@
                 </div>
             </div>
 
-            <button id="btnReset" class="btn outline full-width mt-1">Reset Skenario & Database</button>
+        </div>
+
+        <div class="reset-wrapper text-center mt-1">
+            <button id="btnReset" class="btn primary btn-small">Reset Skenario & Database</button>
         </div>
 
         <div class="toast-container" id="toastContainer"></div>
 
-        <!-- Data Table Section -->
-        <section class="card table-card mt-2">
-            <h2>Data Kabar Masuk (Top 50)</h2>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Kabar ID</th>
-                            <th>Kode Billing</th>
-                            <th>Sumber</th>
-                            <th>Jumlah (Rp)</th>
-                            <th>Waktu Mulai Eksekusi</th>
-                            <th>Waktu Selesai Eksekusi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBody">
-                        <tr><td colspan="6" class="text-center">Memuat data...</td></tr>
-                    </tbody>
-                </table>
+        <!-- Activity Log Terminal -->
+        <section class="terminal-card mt-2">
+            <div class="terminal-header">
+                <div class="mac-btns">
+                    <span class="mac-btn close"></span>
+                    <span class="mac-btn minimize"></span>
+                    <span class="mac-btn expand"></span>
+                </div>
+                <div class="terminal-title">Pipeline Activity Log</div>
+                <div class="rmq-live-stats" title="Cuplikan antrean dari RabbitMQ">
+                    <span class="badge badge-rmq">RabbitMQ:</span>
+                    <span class="badge badge-ready">Ready: <span id="rmqReady">0</span></span>
+                    <span class="badge badge-unacked">Unacked: <span id="rmqUnacked">0</span></span>
+                </div>
+                <button id="btnExportLog" class="btn-export">Export TXT</button>
+            </div>
+            <div class="terminal-body" id="terminalBody">
+                <div class="log-line system"><span class="log-info">Menunggu aktivitas sistem...</span></div>
             </div>
         </section>
 
-        <!-- Tabel Penolakan (U4) -->
-        <section class="card table-card mt-1" style="border-left: 4px solid #ef4444;">
-            <h2 style="color: #ef4444;">Data Kabar Ditolak (Dead Letter)</h2>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Kabar ID</th>
-                            <th>Alasan Penolakan</th>
-                            <th>Waktu Mulai Eksekusi</th>
-                            <th>Waktu Selesai Eksekusi</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tableBodyDitolak">
-                        <tr><td colspan="4" class="text-center">Belum ada data ditolak</td></tr>
-                    </tbody>
-                </table>
+        <!-- Data Tables Side by Side -->
+        <div class="logs-tables-grid">
+            <div class="left-col">
+                <!-- Data Table Section -->
+                <section class="card table-card">
+                    <h2>Data Kabar Masuk (Top 50)</h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Kabar ID</th>
+                                    <th>Kode Billing</th>
+                                    <th>Sumber</th>
+                                    <th>Jumlah (Rp)</th>
+                                    <th>Waktu Mulai Eksekusi</th>
+                                    <th>Waktu Selesai Eksekusi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center">Memuat data...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
-        </section>
+
+            <div class="right-col">
+                <!-- Antrean RabbitMQ -->
+                <section class="card table-card" style="border-left: 4px solid #f59e0b; margin-bottom: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h2 style="color: #d97706; margin: 0;">Antrean 'rekonsiliasi'</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Kabar ID</th>
+                                    <th>Kode Billing</th>
+                                    <th>Sumber</th>
+                                    <th>Jumlah (Rp)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyAntrean">
+                                <tr>
+                                    <td colspan="4" class="text-center">Memuat antrean...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Tabel Penolakan (U4) -->
+                <section class="card table-card" style="border-left: 4px solid #ef4444;">
+                    <h2 style="color: #ef4444;">Data Kabar Ditolak (Dead Letter)</h2>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Kabar ID</th>
+                                    <th>Alasan Penolakan</th>
+                                    <th>Waktu Mulai Eksekusi</th>
+                                    <th>Waktu Selesai Eksekusi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBodyDitolak">
+                                <tr>
+                                    <td colspan="4" class="text-center">Belum ada data ditolak</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </div>
     </div>
-    
+
     <script src="script.js?v=3"></script>
 </body>
+
 </html>

@@ -29,13 +29,15 @@ async function publishKabar(kabar) {
   const payload = Buffer.from(JSON.stringify(kabar));
   
   return new Promise((resolve, reject) => {
+    console.log(`[Service Producer] Memulai publish kabar_id: ${kabar.kabar_id} (Kode: ${kabar.kode_billing}, Rp${kabar.jumlah})`);
+    
     // mandatory: true memastikan jika pesan tidak memiliki route (queue tidak bind), maka akan me-return error
     channel.publish(EXCHANGE_NAME, ROUTING_KEY, payload, { persistent: true, mandatory: true }, (err, ok) => {
       if (err) {
-        console.error(`[Producer ERR] Gagal mengirim pesan ${kabar.kabar_id}`, err);
+        console.error(`[RabbitMQ] Gagal enqueue pesan ${kabar.kabar_id}`, err);
         return reject(err);
       }
-      console.log(`[Producer] Berhasil publish ${kabar.kabar_id} untuk ${kabar.kode_billing} (Broker Confirmed)`);
+      console.log(`[RabbitMQ] Pesan ${kabar.kabar_id} masuk antrean 'rekonsiliasi' (Status: Ready)`);
       resolve(ok);
     });
   });
