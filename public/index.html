@@ -134,6 +134,27 @@
 
         </div>
 
+        <!-- Activity Log Terminal -->
+        <section class="terminal-card mt-2 mb-2">
+            <div class="terminal-header">
+                <div class="mac-btns">
+                    <span class="mac-btn close"></span>
+                    <span class="mac-btn minimize"></span>
+                    <span class="mac-btn expand"></span>
+                </div>
+                <div class="terminal-title">Pipeline Activity Log</div>
+                <div class="rmq-live-stats" title="Cuplikan antrean dari RabbitMQ">
+                    <span class="badge badge-rmq">RabbitMQ:</span>
+                    <span class="badge badge-ready">Ready: <span id="rmqReady">0</span></span>
+                    <span class="badge badge-unacked">Unacked: <span id="rmqUnacked">0</span></span>
+                </div>
+                <button id="btnExportLog" class="btn-export">Export TXT</button>
+            </div>
+            <div class="terminal-body" id="terminalBody">
+                <div class="log-line system"><span class="log-info">Menunggu aktivitas sistem...</span></div>
+            </div>
+        </section>
+
         <!-- Data Tables 1 Block -->
         <div class="tables-container mt-2">
             <!-- Data Table Section -->
@@ -230,30 +251,9 @@
                 </div>
             </section>
         </div>
-
-        <!-- Activity Log Terminal -->
-        <section class="terminal-card mt-2 mb-2">
-            <div class="terminal-header">
-                <div class="mac-btns">
-                    <span class="mac-btn close"></span>
-                    <span class="mac-btn minimize"></span>
-                    <span class="mac-btn expand"></span>
-                </div>
-                <div class="terminal-title">Pipeline Activity Log</div>
-                <div class="rmq-live-stats" title="Cuplikan antrean dari RabbitMQ">
-                    <span class="badge badge-rmq">RabbitMQ:</span>
-                    <span class="badge badge-ready">Ready: <span id="rmqReady">0</span></span>
-                    <span class="badge badge-unacked">Unacked: <span id="rmqUnacked">0</span></span>
-                </div>
-                <button id="btnExportLog" class="btn-export">Export TXT</button>
-            </div>
-            <div class="terminal-body" id="terminalBody">
-                <div class="log-line system"><span class="log-info">Menunggu aktivitas sistem...</span></div>
-            </div>
-        </section>
     </div>
 
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
 </body>
 
 </html>

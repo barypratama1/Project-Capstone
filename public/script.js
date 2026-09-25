@@ -180,10 +180,17 @@ document.addEventListener('DOMContentLoaded', () => {
         terminalBody.innerHTML = logs.map(log => {
             let colorClass = log.type === 'error' ? 'log-error' : 'log-info';
             let message = log.message;
-            if (message.includes('[Service Consumer]')) colorClass = 'log-consumer';
-            if (message.includes('[Service Producer]')) colorClass = 'log-producer';
-            if (message.includes('[PostgreSQL]')) colorClass = 'log-postgres';
-            if (message.includes('[RabbitMQ]')) colorClass = 'log-rabbitmq';
+            if (message.startsWith('$') || message.includes('[Command]') || message.includes('[Perintah]')) {
+                colorClass = 'log-command';
+            } else if (message.includes('[Service Consumer]')) {
+                colorClass = 'log-consumer';
+            } else if (message.includes('[Service Producer]')) {
+                colorClass = 'log-producer';
+            } else if (message.includes('[PostgreSQL]')) {
+                colorClass = 'log-postgres';
+            } else if (message.includes('[RabbitMQ]')) {
+                colorClass = 'log-rabbitmq';
+            }
 
             return `<div class="log-line"><span class="log-time">[${log.timestamp}]</span><span class="${colorClass}">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span></div>`;
         }).join('');

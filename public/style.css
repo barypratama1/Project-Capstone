@@ -624,3 +624,8 @@ tbody tr:hover {
 .log-rabbitmq {
     color: #f97316;
 }
+
+.log-command {
+    color: #facc15;
+    font-weight: 600;
+}

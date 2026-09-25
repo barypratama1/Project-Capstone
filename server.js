@@ -15,7 +15,7 @@ const originalError = console.error;
 function addLog(type, msg) {
   const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
   globalLogs.push({ type, timestamp, message: msg.toString().trim() });
-  if (globalLogs.length > 200) globalLogs.shift();
+  if (globalLogs.length > 500) globalLogs.shift();
 }
 
 console.log = function(...args) {
@@ -181,6 +181,7 @@ app.post('/api/publish-manual', async (req, res) => {
     if (!kabar_id || !kode_billing || !sumber || !jumlah) {
       return res.status(400).json({ error: 'Data tidak lengkap' });
     }
+    console.log(`$ node producer.js ${kabar_id} ${kode_billing} ${sumber} ${jumlah}`);
     const payload = {
       kabar_id,
       kode_billing,
@@ -239,6 +240,7 @@ app.post('/api/worker/start', (req, res) => {
     return res.json({ message: 'Worker is already running' });
   }
 
+  console.log(`$ node worker.js`);
   workerProcess = spawn('node', [path.join(__dirname, 'worker.js')]);
   
   workerProcess.stdout.on('data', data => console.log(`[Worker] ${data}`));
@@ -254,6 +256,7 @@ app.post('/api/worker/start', (req, res) => {
 // POST /api/worker/stop
 app.post('/api/worker/stop', (req, res) => {
   if (workerProcess && !workerProcess.killed) {
+    console.log(`$ kill -SIGINT worker.js`);
     workerProcess.kill('SIGINT');
     workerProcess = null;
     return res.json({ message: 'Worker stopped' });
@@ -265,6 +268,7 @@ app.post('/api/worker/stop', (req, res) => {
 app.post('/api/publish', async (req, res) => {
   try {
     const { kabar_id, kode_billing, sumber, jumlah } = req.body;
+    console.log(`$ node producer.js ${kabar_id} ${kode_billing || ''} ${sumber} ${jumlah}`);
     await publishKabar({ kabar_id, kode_billing, sumber, jumlah: parseInt(jumlah) });
     res.json({ message: `Message ${kabar_id} published` });
   } catch (err) {
@@ -276,6 +280,7 @@ app.post('/api/publish', async (req, res) => {
 app.post('/api/test/u1', async (req, res) => {
   try {
     const { run_id } = req.body;
+    console.log(`$ # Menjalankan Skenario U1: Normal (10 pasang data / 20 pesan)`);
     // 10 pairs = 20 messages
     for (let i = 1; i <= 10; i++) {
       const id = i.toString().padStart(2, '0');
@@ -284,11 +289,15 @@ app.post('/api/test/u1', async (req, res) => {
       
       if (i % 2 === 0) {
         // Rekap lalu langsung
+        console.log(`$ node producer.js ${run_id}-R${id} ${kodeBilling} rekap ${randomJumlah}`);
         await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: randomJumlah });
+        console.log(`$ node producer.js ${run_id}-L${id} ${kodeBilling} langsung ${randomJumlah}`);
         await publishKabar({ kabar_id: `${run_id}-L${id}`, kode_billing: kodeBilling, sumber: 'langsung', jumlah: randomJumlah });
       } else {
         // Langsung lalu rekap
+        console.log(`$ node producer.js ${run_id}-L${id} ${kodeBilling} langsung ${randomJumlah}`);
         await publishKabar({ kabar_id: `${run_id}-L${id}`, kode_billing: kodeBilling, sumber: 'langsung', jumlah: randomJumlah });
+        console.log(`$ node producer.js ${run_id}-R${id} ${kodeBilling} rekap ${randomJumlah}`);
         await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: randomJumlah });
       }
     }
@@ -299,8 +308,10 @@ app.post('/api/test/u1', async (req, res) => {
 app.post('/api/test/u2', async (req, res) => {
   try {
     const { run_id } = req.body;
+    console.log(`$ # Menjalankan Skenario U2: 5 pesan (G01-G05) saat worker offline`);
     for (let i = 1; i <= 5; i++) {
       const id = i.toString().padStart(2, '0');
+      console.log(`$ node producer.js ${run_id}-G${id} BIL-${run_id}-G${id} rekap 200000`);
       await publishKabar({ kabar_id: `${run_id}-G${id}`, kode_billing: `BIL-${run_id}-G${id}`, sumber: 'rekap', jumlah: 200000 });
     }
     res.json({ message: 'U2 Sent (5 messages G01-G05)' });
@@ -310,10 +321,12 @@ app.post('/api/test/u2', async (req, res) => {
 app.post('/api/test/u3', async (req, res) => {
   try {
     const { run_id } = req.body;
+    console.log(`$ # Menjalankan Skenario U3: Replay pengiriman R01-R05 (duplikasi pesan)`);
     // Replay 5 messages that were sent in U1
     for (let i = 1; i <= 5; i++) {
       const id = i.toString().padStart(2, '0');
       const kodeBilling = `BIL-${run_id}-${id}`;
+      console.log(`$ node producer.js ${run_id}-R${id} ${kodeBilling} rekap 100000`);
       await publishKabar({ kabar_id: `${run_id}-R${id}`, kode_billing: kodeBilling, sumber: 'rekap', jumlah: 100000 });
     }
     res.json({ message: 'U3 Sent (Replay R01-R05)' });
@@ -323,7 +336,10 @@ app.post('/api/test/u3', async (req, res) => {
 app.post('/api/test/u4', async (req, res) => {
   try {
     const { run_id } = req.body;
+    console.log(`$ # Menjalankan Skenario U4: Kirim data invalid (X01) & valid (V01)`);
+    console.log(`$ node producer.js ${run_id}-X01 "" rekap 150000`);
     await publishKabar({ kabar_id: `${run_id}-X01`, sumber: 'rekap', jumlah: 150000 }); // missing kode_billing
+    console.log(`$ node producer.js ${run_id}-V01 BIL-${run_id}-V01 langsung 100000`);
     await publishKabar({ kabar_id: `${run_id}-V01`, kode_billing: `BIL-${run_id}-V01`, sumber: 'langsung', jumlah: 100000 });
     res.json({ message: 'U4 Sent (X01 and V01)' });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -333,8 +349,10 @@ app.post('/api/reset', async (req, res) => {
   let client;
   try {
     globalLogs.length = 0; // Clear logs on reset
+    console.log(`$ psql -c "TRUNCATE TABLE kabar_pembayaran, status_lunas, kabar_ditolak, kabar_duplikat;"`);
     client = await pool.connect();
     await client.query('TRUNCATE TABLE kabar_pembayaran, status_lunas, kabar_ditolak, kabar_duplikat');
+    console.log(`[PostgreSQL] Database reset successfully`);
     res.json({ message: 'Database reset successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -65,6 +65,7 @@ if (require.main === module) {
       jumlah: parseInt(args[3])
     };
     initProducer().then(async () => {
+      console.log(`$ node producer.js ${args.join(' ')}`);
       await publishKabar(kabar);
       await closeProducer();
       process.exit(0);
